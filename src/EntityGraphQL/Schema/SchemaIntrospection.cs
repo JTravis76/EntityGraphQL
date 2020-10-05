@@ -118,7 +118,8 @@
                         continue;
 
                     // Skip any property with special attribute
-                    var property = schemaType.ContextType.GetProperty(field.Name);
+                    //== JT: When reading PropertyInfo, must use the default casing. Had to convert back to Pascal from Camel case
+                    var property = schemaType.ContextType.GetProperty(SchemaGenerator.ToPascalCaseStartsUpper(field.Name));
                     if (property != null && GraphQLIgnoreAttribute.ShouldIgnoreMemberFromInput(property))
                         continue;
 
@@ -219,8 +220,12 @@
                 if (type.Kind == "OBJECT" && isInput)
                 {
                     type.Kind = "INPUT_OBJECT";
+                    //== JT: !! INPUT_OBJECT names MUST use camelCase to avoid collision to OBJECT types !!
+                    type.Name = SchemaGenerator.ToCamelCaseStartsLower(typeInfo.SchemaType.Name);
                 }
-                type.Name = typeInfo.SchemaType.Name;
+                else
+                    type.Name = typeInfo.SchemaType.Name;
+                //==
             }
             if (typeInfo.TypeNotNullable)
             {
@@ -270,7 +275,8 @@
                     DeprecationReason = "",
                     Description = field.Description,
                     IsDeprecated = false,
-                    Name = SchemaGenerator.ToCamelCaseStartsLower(field.Name),
+                    //Name = SchemaGenerator.ToCamelCaseStartsLower(field.Name),
+                    Name = field.Name, //== JT, controlled by DisplayName attribute
                     Type = BuildType(schema, field.ReturnType, field.ReturnType.TypeDotnet),
                 });
             }

@@ -10,7 +10,7 @@ using EntityGraphQL.Extensions;
 
 namespace EntityGraphQL.Schema
 {
-    public class MutationType : IField
+    public partial class MutationType : IField
     {
         private readonly object mutationClassInstance;
         private readonly MethodInfo method;
@@ -37,7 +37,7 @@ namespace EntityGraphQL.Schema
             {
                 // second arg is the arguments for the mutation - required as last arg in the mutation method
                 argInstance = AssignArgValues(gqlRequestArgs);
-                VaildateModelBinding(argInstance, validator);
+                ValidateModelBinding(argInstance, validator);
                 if (validator.Errors.Any())
                     return null;
             }
@@ -58,6 +58,12 @@ namespace EntityGraphQL.Schema
                 {
                     allArgs.Add(validator);
                 }
+                //== JT: To allow mutation with a parameter instead of POCO
+                else if (p.ParameterType.Namespace.StartsWith("System") || p.ParameterType.Namespace.StartsWith("EntityGraphQL.Schema"))
+                {
+                    allArgs.Add(argInstance);
+                }
+                //==
                 else
                 {
                     var service = serviceProvider.GetService(p.ParameterType);
@@ -83,8 +89,36 @@ namespace EntityGraphQL.Schema
 
         private object AssignArgValues(Dictionary<string, ExpressionResult> gqlRequestArgs)
         {
-            var argInstance = Activator.CreateInstance(this.argInstanceType);
+            //== JT: "No parameterless constructor defined for type 'System.String'."
+            object argInstance;
+            if (this.argInstanceType.Name == "String")
+                argInstance = Activator.CreateInstance(this.argInstanceType, new char[] { });
+            else
+                argInstance = Activator.CreateInstance(this.argInstanceType);
             Type argType = this.argInstanceType;
+
+            /*== JT: When using single parameter in a mutation, 
+             * EX: public ReturnObj MethodName(DataContext context, RequiredField<int> id) { } 
+             */
+            if (argType.Name == "RequiredField`1")
+            {
+                var prop = argInstance.GetType().GetProperty("Value");
+                string memberName = gqlRequestArgs.First().Key;
+                object value = GetValue(gqlRequestArgs, memberName, prop.PropertyType);
+                prop.SetValue(argInstance, value);
+                return argInstance;
+            }
+            else if (argType.Namespace.StartsWith("System"))
+            {
+                string memberName = gqlRequestArgs.First().Key;
+                object value = Expression.Lambda(gqlRequestArgs[memberName]).Compile().DynamicInvoke();
+                value = Convert.ChangeType(value, argType);
+                //assign value directly
+                argInstance = value;
+                return argInstance;
+            }
+            //==
+
             foreach (var key in gqlRequestArgs.Keys)
             {
                 var foundProp = false;
@@ -181,6 +215,32 @@ namespace EntityGraphQL.Schema
                     argumentTypes.Add(fieldNamer(item), ArgType.FromField(schema, item));
                 }
             }
+            //== JT: Start Here
+            else
+            {
+                /*== JT
+                * When parameters are the standard System Types like; Int, String, etc or using the EntityGraphQL.Schema.RequiredField,
+                * loop through the parameters and NOT the object's properties
+                * NOTE: some parameters might be Services
+                * EX: public ReturnModel RemoveById(DataContext context, RequiredField<int> id)
+                */
+                // !! Forcing a single parameter ONLY. Anything more than that should require a POCO !!
+                ParameterInfo item = method.GetParameters()
+                    .FirstOrDefault(p => p.ParameterType.Namespace.StartsWith("EntityGraphQL.Schema") || p.ParameterType.Namespace.StartsWith("System"));
+
+                if (item.ParameterType.Name == "Nullable`1")
+                {
+                    Type argType = item.ParameterType.GetGenericArguments()[0];
+                    argInstanceType = argType;
+                }
+                else
+                {
+                    argInstanceType = item.ParameterType;
+                }
+                //TODO: see if able to use the "fieldNamer()" function
+                argumentTypes.Add(SchemaGenerator.ToCamelCaseStartsLower(item.Name), ArgType.FromParameter(schema, item));
+            }
+            //==
         }
 
         public bool HasArgumentByName(string argName)
@@ -197,9 +257,13 @@ namespace EntityGraphQL.Schema
             return argumentTypes[argName];
         }
 
-        private void VaildateModelBinding(object entity, GraphQLValidator validator)
+        private void ValidateModelBinding(object entity, GraphQLValidator validator)
         {
             Type argType = entity.GetType();
+            //== JT: skip validation for System.String when used as a single parameter in a mutation
+            if (argType.Name == "String")
+                return;
+            //==
             foreach (var prop in argType.GetProperties())
             {
                 object value = prop.GetValue(entity, null);

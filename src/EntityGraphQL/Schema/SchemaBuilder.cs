@@ -79,7 +79,8 @@ namespace EntityGraphQL.Schema
             if (!fieldProp.Resolve.Type.IsEnumerableOrArray())
                 return;
             var schemaType = fieldProp.ReturnType.SchemaType;
-            var idFieldDef = schemaType.GetFields().FirstOrDefault(f => f.Name == "id");
+            /*== JT, ignore casing. User may use PascalCase field names */
+            var idFieldDef = schemaType.GetFields().FirstOrDefault(f => f.Name.Equals("id", StringComparison.CurrentCultureIgnoreCase));
             if (idFieldDef == null)
                 return;
 
@@ -165,6 +166,15 @@ namespace EntityGraphQL.Schema
             // see if there is a direct type mapping from the expression return to to something.
             // otherwise build the type info
             var returnTypeInfo = schema.GetCustomTypeMapping(le.ReturnType) ?? new GqlTypeInfo(() => schema.Type(returnType), le.Body.Type);
+
+            /*== JT 
+             * Allow user to customize the schema-first casing. */
+            string propName = SchemaGenerator.ToCamelCaseStartsLower(prop.Name);
+            var n = (DisplayNameAttribute)prop.GetCustomAttribute(typeof(DisplayNameAttribute), false);
+            if (n != null)
+                propName = n.DisplayName;
+            //==
+            // TODO: Luke added a `fieldNamer()`, need to review before adding propName variable
             var f = new Field(fieldNamer(prop), le, description, returnTypeInfo, requiredClaims);
             return f;
         }
@@ -185,6 +195,15 @@ namespace EntityGraphQL.Schema
                 {
                     description = d.Description;
                 }
+
+                /*== JT 
+                 * Allow user to change the casing from the default camel case
+                 * TODO: Commented out due to changes in code */
+                //string name = SchemaGenerator.ToCamelCaseStartsLower(typeInfo.Name);
+                //var n = (DisplayNameAttribute)typeInfo.GetCustomAttribute(typeof(DisplayNameAttribute), false);
+                //if (n != null)
+                //    name = n.DisplayName;
+                //==
 
                 if (createNewComplexTypes && (typeInfo.IsClass || typeInfo.IsInterface))
                 {

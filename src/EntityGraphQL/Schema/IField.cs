@@ -125,6 +125,14 @@ namespace EntityGraphQL.Schema
             return arg;
         }
 
+        //== JT:
+        public static ArgType FromParameter(ISchemaProvider schema, ParameterInfo parameter)
+        {
+            var arg = MakeArgType(schema, parameter.ParameterType, parameter.Member);
+
+            return arg;
+        }
+
         private static ArgType MakeArgType(ISchemaProvider schema, Type type, MemberInfo field)
         {
             var markedRequired = false;

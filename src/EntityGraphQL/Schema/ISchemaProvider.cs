@@ -18,7 +18,17 @@ namespace EntityGraphQL.Schema
     /// </summary>
     public interface ISchemaProvider
     {
-        Func<MemberInfo, string> SchemaFieldNamer { get; }
+		Func<MemberInfo, string> SchemaFieldNamer { get; }
+        //== JT
+
+        /// <summary>
+        /// Gets or Sets the Operation Type
+        /// </summary>
+        /// <remarks>Needed the ability to flag the operation type in a event the name field name was use for either query or mutation</remarks>
+        OperationType OperationType { get; set; }
+
+        //==
+
         /// The base context type that expression will be built from. For example your DbContext
         Type ContextType { get; }
 
@@ -90,5 +100,13 @@ namespace EntityGraphQL.Schema
         void AddDirective(string name, IDirectiveProcessor directive);
         IEnumerable<IDirectiveProcessor> GetDirectives();
         GqlTypeInfo GetCustomTypeMapping(Type dotnetType);
+
+
+        /// <summary>
+        /// Security User
+        /// </summary>
+        //TODO: Security.User User { get; set; }
+        //== JT: add support for introspection
+        //TODO: Luke seem to added one. Dictionary<string, IDirectiveProcessor> GetDirectives();
     }
 }

@@ -49,7 +49,8 @@ namespace EntityGraphQL.Compiler
             var args = context.argsCall != null ? ParseGqlCall(actualFieldName, context.argsCall) : null;
             var alias = context.alias?.name.GetText();
 
-            if (schemaProvider.HasMutation(actualFieldName))
+            //== JT: add Operation Type check
+            if (schemaProvider.HasMutation(actualFieldName) && schemaProvider.OperationType == OperationType.Mutation)
             {
                 var mutationType = schemaProvider.GetMutations().First(m => m.Name == actualFieldName);
                 if (context.select != null)
@@ -340,6 +341,9 @@ namespace EntityGraphQL.Compiler
         /// <returns></returns>
         public override IGraphQLBaseNode VisitDataQuery(EntityGraphQLParser.DataQueryContext context)
         {
+            //== JT: set the Operation Type
+            schemaProvider.OperationType = OperationType.Query;
+            //==
             var operation = GetOperation(context.operationName());
             foreach (var item in operation.Arguments.Where(a => a.DefaultValue != null))
             {
@@ -365,6 +369,9 @@ namespace EntityGraphQL.Compiler
         /// <returns></returns>
         public override IGraphQLBaseNode VisitMutationQuery(EntityGraphQLParser.MutationQueryContext context)
         {
+            //== JT: set the Operation Type
+            schemaProvider.OperationType = OperationType.Mutation;
+            //==
             var operation = GetOperation(context.operationName());
             foreach (var item in operation.Arguments.Where(a => a.DefaultValue != null))
             {

@@ -111,6 +111,12 @@ namespace EntityGraphQL.Schema
         /// <returns></returns>
         public async Task<QueryResult> ExecuteQueryAsync(QueryRequest gql, TContextType context, IServiceProvider serviceProvider, ClaimsIdentity claims, IMethodProvider methodProvider = null)
         {
+            //== JT
+            this.User = Security.Worker.CreateUser(claims);
+            // Clear any previous errors before executing new query
+            GraphQLValidation.Errors = new List<GraphQLError>();
+            //==
+
             if (methodProvider == null)
                 methodProvider = new DefaultMethodProvider();
 
@@ -211,6 +217,11 @@ namespace EntityGraphQL.Schema
                 {
                     var isAsync = method.GetCustomAttribute(typeof(AsyncStateMachineAttribute)) != null;
                     string name = SchemaGenerator.ToCamelCaseStartsLower(method.Name);
+                    //== JT: Allow user to customize the schema-first casing.
+                    var n = (System.ComponentModel.DisplayNameAttribute)method.GetCustomAttribute(typeof(System.ComponentModel.DisplayNameAttribute), false);
+                    if (n != null)
+                        name = n.DisplayName;
+                    //==
                     var claims = method.GetCustomAttributes(typeof(GraphQLAuthorizeAttribute)).Cast<GraphQLAuthorizeAttribute>();
                     var requiredClaims = new RequiredClaims(claims);
                     var actualReturnType = GetTypeFromMutationReturn(isAsync ? method.ReturnType.GetGenericArguments()[0] : method.ReturnType);
@@ -433,7 +444,8 @@ namespace EntityGraphQL.Schema
 
         public IField GetFieldOnContext(Expression context, string fieldName, ClaimsIdentity claims)
         {
-            if (context.Type == ContextType && mutations.ContainsKey(fieldName))
+            //== JT: add OperationType check
+            if (context.Type == ContextType && mutations.ContainsKey(fieldName) && OperationType == OperationType.Mutation)
             {
                 var mutation = mutations[fieldName];
                 if (!AuthUtil.IsAuthorized(claims, mutation.AuthorizeClaims))
@@ -778,5 +790,44 @@ namespace EntityGraphQL.Schema
         {
             SchemaBuilder.FromObject(this, autoCreateIdArguments, autoCreateEnumTypes, SchemaFieldNamer);
         }
+
+        /*== JT */
+
+        /// <summary>
+        /// Gets or Sets the Operation Type
+        /// </summary>
+        /// <remarks>
+        /// Needed the ability to flag the operation type in a event the name field name was use for either query or mutation. 
+        /// TODO: like to hide from public access
+        /// </remarks>
+        public OperationType OperationType { get; set; }
+
+        /// <summary>
+        /// Add a graphql error
+        /// </summary>
+        /// <param name="message">message to add</param>
+        [Obsolete("See 'EntityGraphQL.GraphQLValidator'")]
+        public void AddError(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+                throw new Exception("message cannot be null or empty");
+
+            GraphQLValidation.Errors.Add(new GraphQLError(message));
+        }
+
+        /// <summary>
+        /// Check if any GraphQL vaildation error
+        /// </summary>
+        [Obsolete("See 'EntityGraphQL.GraphQLValidator'")]
+        public bool IsVaild { get => GraphQLValidation.Errors.Count == 0; }
+
+        /// <summary>
+        /// Security User based on Claims
+        /// </summary>
+        /// <remarks>This is built-in Claims library for storing security</remarks>
+        //public Security.User User { get => Security.Worker.CreateUser(this.ClaimsIdentity); } // This method throw a "Safe handle as been closed" error
+        public Security.User User { get; set; }
+
+        //==
     }
 }

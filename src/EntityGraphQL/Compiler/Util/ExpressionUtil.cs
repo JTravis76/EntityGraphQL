@@ -55,6 +55,24 @@ namespace EntityGraphQL.Compiler.Util
                 return newVal;
             }
 
+            /*== JT- 2018-08-28: if RequiredField, cast the value and return a RequiredField<T> object
+             * Needed this for mutuations that may have a single required parameter like so;
+             * public ReturnModel RemoveById(DataContext context, RequiredField<long> id) {} */
+            if (type.Name == "RequiredField`1")
+            {
+                Type tt = type.GetGenericArguments().First();
+
+                value = Convert.ChangeType(value, tt);
+
+                Type requiredField = typeof(Schema.RequiredField<>);
+                Type makeType = requiredField.MakeGenericType(tt);
+                object obj = Activator.CreateInstance(makeType);
+
+                obj.GetType().GetProperty("Value").SetValue(obj, value);
+
+                return obj;
+            }
+
             if (type != typeof(string) && objType == typeof(string))
             {
                 if (type == typeof(double) || type == typeof(Nullable<double>))

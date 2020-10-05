@@ -11,7 +11,7 @@ namespace EntityGraphQL.Schema
     /// <summary>
     /// Describes an entity field. It's expression based on the base type (your data model) and it's mapped return type
     /// </summary>
-    public class Field : IField
+    public partial class Field : IField
     {
         private readonly Dictionary<string, ArgType> allArguments = new Dictionary<string, ArgType>();
 

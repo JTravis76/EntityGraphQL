@@ -16,6 +16,12 @@ namespace EntityGraphQL.Compiler
         private readonly Dictionary<string, ExpressionResult> args;
         private readonly GraphQLQueryNode resultSelection;
 
+        /*== JT
+         * Needed the ability to flag the operation type in a event the 
+         * name field name was use for either query or mutation*/
+        public OperationType Type => OperationType.Mutation;
+        //==
+
         public string Name { get => mutationType.Name; set => throw new NotImplementedException(); }
         public ParameterExpression FieldParameter => throw new NotImplementedException();
         public IEnumerable<Type> Services => throw new NotImplementedException();

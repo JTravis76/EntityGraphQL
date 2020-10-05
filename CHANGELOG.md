@@ -1,94 +1,14 @@
-# 0.66.1
-- Fix bug with using `WithService()` when you require the schema context service again to create a link between services
-
-# 0.66.0
-- When using services other than the schema context in fields (that return a single object not a Enumerable) the methods/services are no longer executed multiple times. (issue #36). Notes below
-- When a string matches a date time it will be converted to a `DateTime` object. Useful when using the `ArgumentHelper.EntityQuery` for advanced filtering. Regex matches `"yyyy-MM-dd HH:mm:ss.fffffffzzz"`, `"yyyy-MM-dd HH:mm:ss"`, `"yyyy-MM-dd"` with the separator between date and time being either ` ` or `T`
-- `EntityQueryCompiler` (used in `ArgumentHelper.EntityQuery`) supports Enums
-- `fieldNamer` used in mutations too
-
-*Breaking changes*
-- Cleaning up the API. The optional `isNullable` argument is removed from the `AddField()` methods. Use `IsNullable(bool)` method on the `Field` class or the `[GraphQLNotNull]` attribute.
-- Cleaning up the API. `fieldNamer` argument removed from methods in `SchemaProvider` and `SchemaType`. Pass in a `fieldNamer` func to the constructor of `SchemaProvider` which will be used when it is auto creating fields. If you pass it in via `SchemaBuilder.FromObject` it will set it on the `SchemaProvider` created.
-
-## Notes of services fix
-If you build a field like so
-```c#
-schema.AddField("myField", ctx => WithService((IMyService srv) => srv.DoSomething(ctx)));
-
-// Register the service with DI somewhere
-public class MyService: IMyService {
-  public SomeObject DoSomething(Context ctx)
-  {
-    // do something
-    return data;
-  }
-}
-```
-
-With a query like
-```gql
-{
-  myField { field1 field 2 }
-}
-```
-
-We use to build an expression like so
-
-```c#
-srv.DoSomething(ctx) == null ? null : new {
-  field1 = srv.DoSomething(ctx).field1,
-  field2 = srv.DoSomething(ctx).field2
-}
-```
-
-We now wrap this in a method call that only calls `DoSomething(ctx)` a single time Which looks like this
-```c#
-(ctx, srv) => NullCheckWrapper(srv.DoSomething(ctx), parameterValues, selection); // simplifying here
-
-// Again a simified example of what NullCheckWrapper does
-public object NullCheckWrapper(Expression<Func<Context, IMyService>> baseValue, object[] values, LambdaExpression selection)
-{
-  // null check
-  if (baseValue == null)
-    return null;
-  // build the select on the object
-  var result = selection.Compile().DynamicInvoke(baseValue);
-}
-```
-
-This works with services used deeper inthe graph too. Example
-```c#
-schema.Type<Person>().AddField("complexField", (person) => DoSomething(person.Id));
-```
-
-GraphQL
-```gql
-{
-  people {
-    complexField {
-      field1
-      field1
-    }
-  }
-}
-```
-
-The wrapped expression looks like this
-
-```c#
-(ctx, srv) => ctx.People.Select(person => new {
-  complexField = NullCheckWrapper(srv.DoSomething(person.Id), parameterValues, selection); // simplifying here
-})
-```
-
-This has been tested with EF Core and works well.
-
-# 0.65.0
-- You can now secure whole types in the schema. Add the `[GraphQLAuthorize("claim-name")]` to the class or use `schema.AddType(...).RequiresAllClaims("some-claim")`, `schema.AddType(...).RequiresAnyClaim("some-claim")`
-- Add `GetField(Expression<Func<TBaseType, object>>)` overload
-- operation name is optional for a `query` operation as per GraphQL spec if it is the only operation in the request
-- Breaking - removed the `authorizeClaims` argument from `AddField()`. Please use `field.RequiresAllClaims("some-claim")`, `field.RequiresAnyClaim("some-claim")`
+# 0.64.1 Jeremy Travis custom stuff :)
+- Add Security User for easy access to name, roles, and claims within a mutation. Must pass schemaprovider object in mutation service constructor!! Also provides IsInRole() function.
+- Support for single parameter in mutation, EX: public ReturnObj ObjName(DataContext context, RequiredField<int> id) { }
+- Ability to flag the operation type in a event the name field name was use for both query or mutation
+- Enable Directive in Introspection query. Manually add the two defaults; include and skip. No custom support yet!!
+- Allow custom name casing of query, field, member, and  mutation via the ComponentModel.DisplayName attribute.
+- Allow scaffolding the Entity-By-Id during schema-first creation. Was only looking for primary key of [id]. Now ignoring casing.
+- Removed my older Authorization code for Luke's M.
+- Known bugs
+    - all Int type in Introspection is marked required; Int!
+    - DisplayName attr may cause side-effect (WIP)
 
 # 0.64.0
 - Change - descriptions generated for a `.graphql` schema file now use the multiple line triple-quote `"""`

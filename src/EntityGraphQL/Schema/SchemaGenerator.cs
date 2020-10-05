@@ -152,5 +152,11 @@ type RootQuery {{
         {
             return name.Substring(0, 1).ToLowerInvariant() + name.Substring(1);
         }
+
+        //== JT: Needed this to convert camelCase text to when fetching property info via System.Reflection 
+        public static string ToPascalCaseStartsUpper(string name)
+        {
+            return name.Substring(0, 1).ToUpperInvariant() + name.Substring(1);
+        }
     }
 }
