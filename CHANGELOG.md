@@ -1,4 +1,4 @@
-# 0.64.1 Jeremy Travis custom stuff :)
+# 0.66.2 Jeremy Travis custom stuff :)
 - Add Security User for easy access to name, roles, and claims within a mutation. Must pass schemaprovider object in mutation service constructor!! Also provides IsInRole() function.
 - Support for single parameter in mutation, EX: public ReturnObj ObjName(DataContext context, RequiredField<int> id) { }
 - Ability to flag the operation type in a event the name field name was use for both query or mutation
